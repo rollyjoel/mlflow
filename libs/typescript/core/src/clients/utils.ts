@@ -28,7 +28,8 @@ export async function makeRequest<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const errorBody = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorBody}`);
     }
 
     // Handle empty responses (like DELETE operations)
