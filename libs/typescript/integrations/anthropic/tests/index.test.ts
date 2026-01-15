@@ -108,7 +108,8 @@ describe('tracedAnthropic', () => {
       )
     );
 
-    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    // Disable retries to avoid timeout during error handling test
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
     const wrappedAnthropic = tracedAnthropic(anthropic);
 
     await expect(
