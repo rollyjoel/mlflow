@@ -16,6 +16,11 @@ export enum TraceLocationType {
    * Trace is stored in a Databricks inference table
    */
   INFERENCE_TABLE = 'INFERENCE_TABLE',
+
+  /**
+   * Trace is stored in a Databricks Unity Catalog schema
+   */
+  UC_SCHEMA = 'UC_SCHEMA',
 }
 
 /**
@@ -39,6 +44,23 @@ export interface InferenceTableLocation {
 }
 
 /**
+ * Interface representing a Databricks Unity Catalog schema location.
+ * Use this to store traces in Unity Catalog, which enables distributed tracing
+ * across multiple services when using Databricks.
+ */
+export interface UCSchemaLocation {
+  /**
+   * The name of the Unity Catalog catalog
+   */
+  catalogName: string;
+
+  /**
+   * The name of the Unity Catalog schema
+   */
+  schemaName: string;
+}
+
+/**
  * Interface representing the location where the trace is stored
  */
 export interface TraceLocation {
@@ -58,6 +80,12 @@ export interface TraceLocation {
    * Set this when the location type is Databricks Inference table
    */
   inferenceTable?: InferenceTableLocation;
+
+  /**
+   * The Unity Catalog schema location
+   * Set this when the location type is UC_SCHEMA
+   */
+  ucSchema?: UCSchemaLocation;
 }
 
 /**
@@ -69,6 +97,33 @@ export function createTraceLocationFromExperimentId(experimentId: string): Trace
     type: TraceLocationType.MLFLOW_EXPERIMENT,
     mlflowExperiment: {
       experimentId: experimentId,
+    },
+  };
+}
+
+/**
+ * Create a TraceLocation from a Unity Catalog schema.
+ * Use this when storing traces in Databricks Unity Catalog.
+ *
+ * @param catalogName The name of the Unity Catalog catalog
+ * @param schemaName The name of the Unity Catalog schema
+ *
+ * @example
+ * ```typescript
+ * import { setDestination, createTraceLocationFromUCSchema } from 'mlflow-tracing';
+ *
+ * setDestination(createTraceLocationFromUCSchema('my_catalog', 'my_schema'));
+ * ```
+ */
+export function createTraceLocationFromUCSchema(
+  catalogName: string,
+  schemaName: string,
+): TraceLocation {
+  return {
+    type: TraceLocationType.UC_SCHEMA,
+    ucSchema: {
+      catalogName,
+      schemaName,
     },
   };
 }

@@ -55,9 +55,46 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+## Setting Trace Destination
+
+By default, traces are stored in the MLflow experiment specified by `experimentId` in `init()`. You can override this by setting a custom destination using `setDestination()`.
+
+### Unity Catalog Destination (Databricks)
+
+When using Databricks, you can store traces in Unity Catalog. This is required for distributed tracing to work properly with Databricks.
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '123456789',
+});
+
+// Set destination to Unity Catalog for distributed tracing support
+mlflow.setDestination(
+  mlflow.createTraceLocationFromUCSchema('my_catalog', 'my_schema')
+);
+```
+
+### MLflow Experiment Destination
+
+You can also override the experiment destination:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+// Override the default experiment
+mlflow.setDestination(
+  mlflow.createTraceLocationFromExperimentId('different-experiment-id')
+);
+```
+
 ## Distributed Tracing
 
 When your application spans multiple services, you can connect spans from these services into a single trace. MLflow supports this via **Distributed Tracing**, propagating the active trace context over HTTP using the W3C TraceContext specification.
+
+**Note:** When using Databricks, distributed tracing requires Unity Catalog as the trace destination. Use `setDestination()` with `createTraceLocationFromUCSchema()` to enable this.
 
 ### Client Example
 

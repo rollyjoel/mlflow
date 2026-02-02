@@ -2,6 +2,7 @@ import path from 'path';
 import os from 'os';
 import { initializeSDK } from './provider';
 import { AuthProvider, createAuthProvider, isDatabricksUri } from '../auth';
+import { TraceLocationType, type TraceLocation } from './entities/trace_location';
 
 /**
  * Validate that a URI has a proper protocol (http or https)
@@ -88,6 +89,11 @@ let globalConfig: MLflowTracingConfig | null = null;
  * Global authentication provider
  */
 let globalAuthProvider: AuthProvider | null = null;
+
+/**
+ * Global trace destination (takes precedence over config)
+ */
+let globalDestination: TraceLocation | null = null;
 
 /**
  * Configure the MLflow tracing SDK with tracking location settings.
@@ -271,10 +277,94 @@ export function getAuthProvider(): AuthProvider {
 }
 
 /**
+ * Set a custom trace destination to which MLflow will export traces.
+ *
+ * A destination specified by this function will take precedence over
+ * the experimentId set via init() or environment variables.
+ *
+ * @param destination A trace location object that specifies where trace data is stored.
+ *   Supported locations:
+ *   - MlflowExperimentLocation: Logs traces to an MLflow experiment
+ *   - UCSchemaLocation: Logs traces to a Databricks Unity Catalog schema (enables distributed tracing)
+ *
+ * @example
+ * ```typescript
+ * import { init, setDestination, createTraceLocationFromUCSchema } from 'mlflow-tracing';
+ *
+ * // Initialize with Databricks
+ * init({ trackingUri: 'databricks', experimentId: '123' });
+ *
+ * // Set destination to Unity Catalog for distributed tracing support
+ * setDestination(createTraceLocationFromUCSchema('my_catalog', 'my_schema'));
+ * ```
+ *
+ * @example
+ * ```typescript
+ * import { init, setDestination, createTraceLocationFromExperimentId } from 'mlflow-tracing';
+ *
+ * // Override experiment destination
+ * setDestination(createTraceLocationFromExperimentId('456'));
+ * ```
+ */
+export function setDestination(destination: TraceLocation): void {
+  if (!destination.type) {
+    throw new Error('Invalid destination: missing type property');
+  }
+
+  // Validate the destination has the correct properties for its type
+  if (destination.type === TraceLocationType.MLFLOW_EXPERIMENT && !destination.mlflowExperiment) {
+    throw new Error('Invalid destination: MLFLOW_EXPERIMENT type requires mlflowExperiment property');
+  }
+
+  if (destination.type === TraceLocationType.UC_SCHEMA && !destination.ucSchema) {
+    throw new Error('Invalid destination: UC_SCHEMA type requires ucSchema property');
+  }
+
+  // If using UC_SCHEMA and not yet initialized with Databricks, auto-configure
+  if (destination.type === TraceLocationType.UC_SCHEMA && globalConfig) {
+    if (!isDatabricksUri(globalConfig.trackingUri)) {
+      // eslint-disable-next-line no-console
+      console.info(
+        'Automatically setting the tracking URI to "databricks" ' +
+          'because the tracing destination is set to Unity Catalog.',
+      );
+      // Re-initialize with databricks URI
+      init({
+        ...globalConfig,
+        trackingUri: 'databricks',
+      });
+    }
+  }
+
+  globalDestination = destination;
+}
+
+/**
+ * Get the current trace destination.
+ *
+ * Returns the destination set via setDestination() if available,
+ * otherwise returns null (indicating the default from config should be used).
+ *
+ * @returns The current trace destination or null
+ */
+export function getDestination(): TraceLocation | null {
+  return globalDestination;
+}
+
+/**
+ * Reset the trace destination.
+ * After calling this, traces will be sent to the default destination from config.
+ */
+export function resetDestination(): void {
+  globalDestination = null;
+}
+
+/**
  * Reset the global configuration. For testing purposes only.
  * @internal
  */
 export function resetConfig(): void {
   globalConfig = null;
   globalAuthProvider = null;
+  globalDestination = null;
 }

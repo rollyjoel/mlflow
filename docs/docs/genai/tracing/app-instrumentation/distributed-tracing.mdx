@@ -122,6 +122,39 @@ app.post("/handle-async", async (req, res) => {
 </TabItem>
 </Tabs>
 
-## Limitation in Databricks
+## Using Databricks with Unity Catalog
 
-If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
+If you set up MLflow tracking to Databricks, distributed tracing requires Unity Catalog as the trace destination. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from mlflow.entities.trace_location import UCSchemaLocation
+
+mlflow.set_tracking_uri("databricks")
+mlflow.tracing.set_destination(
+    UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
+)
+```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.init({
+  trackingUri: "databricks",
+  experimentId: "123456789",
+});
+
+// Set destination to Unity Catalog for distributed tracing support
+mlflow.setDestination(
+  mlflow.createTraceLocationFromUCSchema("my_catalog", "my_schema")
+);
+```
+
+</TabItem>
+</Tabs>

@@ -1,7 +1,19 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { init, getConfig } from '../../src/core/config';
+import {
+  init,
+  getConfig,
+  setDestination,
+  getDestination,
+  resetDestination,
+  resetConfig,
+} from '../../src/core/config';
+import {
+  createTraceLocationFromExperimentId,
+  createTraceLocationFromUCSchema,
+  TraceLocationType,
+} from '../../src/core/entities/trace_location';
 
 describe('Config', () => {
   describe('init and getConfig', () => {
@@ -252,6 +264,74 @@ token = dapi123456789abcdef`;
         const result = getConfig();
         expect(result.host).toBe('https://default-workspace.databricks.com');
       });
+    });
+  });
+
+  describe('setDestination and getDestination', () => {
+    beforeEach(() => {
+      resetDestination();
+      init({
+        trackingUri: 'http://localhost:5000',
+        experimentId: '123456789',
+      });
+    });
+
+    afterEach(() => {
+      resetDestination();
+    });
+
+    it('should return null when no destination is set', () => {
+      resetDestination();
+      expect(getDestination()).toBeNull();
+    });
+
+    it('should set and get MLflow experiment destination', () => {
+      const destination = createTraceLocationFromExperimentId('my-experiment');
+      setDestination(destination);
+
+      const result = getDestination();
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe(TraceLocationType.MLFLOW_EXPERIMENT);
+      expect(result?.mlflowExperiment?.experimentId).toBe('my-experiment');
+    });
+
+    it('should set and get UC schema destination', () => {
+      const destination = createTraceLocationFromUCSchema('my_catalog', 'my_schema');
+      setDestination(destination);
+
+      const result = getDestination();
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe(TraceLocationType.UC_SCHEMA);
+      expect(result?.ucSchema?.catalogName).toBe('my_catalog');
+      expect(result?.ucSchema?.schemaName).toBe('my_schema');
+    });
+
+    it('should reset destination', () => {
+      const destination = createTraceLocationFromExperimentId('my-experiment');
+      setDestination(destination);
+      expect(getDestination()).not.toBeNull();
+
+      resetDestination();
+      expect(getDestination()).toBeNull();
+    });
+
+    it('should throw error for destination without type', () => {
+      const invalidDestination = {} as any;
+      expect(() => setDestination(invalidDestination)).toThrow('Invalid destination: missing type property');
+    });
+
+    it('should throw error for MLFLOW_EXPERIMENT type without mlflowExperiment property', () => {
+      const invalidDestination = { type: TraceLocationType.MLFLOW_EXPERIMENT } as any;
+      expect(() => setDestination(invalidDestination)).toThrow(
+        'Invalid destination: MLFLOW_EXPERIMENT type requires mlflowExperiment property',
+      );
+    });
+
+    it('should throw error for UC_SCHEMA type without ucSchema property', () => {
+      const invalidDestination = { type: TraceLocationType.UC_SCHEMA } as any;
+      expect(() => setDestination(invalidDestination)).toThrow(
+        'Invalid destination: UC_SCHEMA type requires ucSchema property',
+      );
     });
   });
 });

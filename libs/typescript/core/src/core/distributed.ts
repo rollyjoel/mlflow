@@ -6,35 +6,40 @@ import { TraceState } from './entities/trace_state';
 import { TraceLocationType } from './entities/trace_location';
 import { TRACE_ID_PREFIX } from './constants';
 import { isDatabricksUri } from '../auth';
+import { getDestination } from './config';
 
 const propagator = new W3CTraceContextPropagator();
 
-// Track whether we've already warned about Databricks limitation
-let hasDatabricksWarningBeenShown = false;
+// Track whether we've already warned about Databricks UC requirement
+let hasUCSchemaWarningBeenShown = false;
 
 /**
- * Check if the SDK is configured to use Databricks and warn about limitations.
+ * Check if the SDK is configured to use Databricks and warn about UC schema requirement.
+ * Distributed tracing with Databricks requires using Unity Catalog as the destination.
  * This warning is shown only once per session.
  */
-function warnIfDatabricksBackend(): void {
-  if (hasDatabricksWarningBeenShown) {
+function warnIfDatabricksWithoutUCSchema(): void {
+  if (hasUCSchemaWarningBeenShown) {
     return;
   }
 
   try {
     // Dynamically import to avoid circular dependency and handle uninitialized state
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const { getConfig } = require('./config') as { getConfig: () => { trackingUri: string } };
     const config = getConfig();
 
+    // Only warn if using Databricks but not using UC schema as destination
     if (isDatabricksUri(config.trackingUri)) {
-      console.warn(
-        'Distributed tracing with Databricks Unity Catalog is not fully supported. ' +
-          'Spans created in this remote process will be recorded locally but may not be ' +
-          'exported to the trace destination. For full distributed tracing support, ' +
-          'please use an MLflow tracking server with a SQL backend.',
-      );
-      hasDatabricksWarningBeenShown = true;
+      const destination = getDestination();
+      if (!destination || destination.type !== TraceLocationType.UC_SCHEMA) {
+        console.warn(
+          'Distributed tracing with Databricks requires Unity Catalog as the trace destination. ' +
+            'Please use setDestination() with createTraceLocationFromUCSchema() to enable ' +
+            'distributed tracing. See: https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog',
+        );
+        hasUCSchemaWarningBeenShown = true;
+      }
     }
   } catch {
     // Config not initialized yet - skip warning
@@ -63,7 +68,7 @@ function warnIfDatabricksBackend(): void {
 export function getTracingContextHeadersForHttpRequest(): Record<string, string> {
   const activeSpan = otelTrace.getActiveSpan();
 
-  if (!activeSpan || !activeSpan.spanContext().traceId) {
+  if (!activeSpan?.spanContext().traceId) {
     console.warn(
       'No active span found for fetching the trace context from. Returning an empty header.',
     );
@@ -72,9 +77,8 @@ export function getTracingContextHeadersForHttpRequest(): Record<string, string>
 
   const headers: Record<string, string> = {};
   propagator.inject(context.active(), headers, {
-    set: (carrier, key, value) => {
-      carrier[key] = value;
-    },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    set: (carrier, key, value) => { carrier[key] = value; },
   });
 
   return headers;
@@ -114,7 +118,7 @@ export function withTracingContextFromHeaders<T>(
   callback: () => T,
 ): T {
   // Warn users if they're using Databricks, as distributed tracing has limitations
-  warnIfDatabricksBackend();
+  warnIfDatabricksWithoutUCSchema();
 
   const normalizedHeaders = normalizeHeaders(headers);
 
@@ -127,7 +131,9 @@ export function withTracingContextFromHeaders<T>(
 
   // Extract context from headers
   const extractedContext = propagator.extract(context.active(), normalizedHeaders, {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
     get: (carrier, key) => carrier[key],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     keys: (carrier) => Object.keys(carrier),
   });
 
@@ -193,7 +199,7 @@ export async function withTracingContextFromHeadersAsync<T>(
   callback: () => Promise<T>,
 ): Promise<T> {
   // Warn users if they're using Databricks, as distributed tracing has limitations
-  warnIfDatabricksBackend();
+  warnIfDatabricksWithoutUCSchema();
 
   const normalizedHeaders = normalizeHeaders(headers);
 
@@ -205,7 +211,9 @@ export async function withTracingContextFromHeadersAsync<T>(
   }
 
   const extractedContext = propagator.extract(context.active(), normalizedHeaders, {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
     get: (carrier, key) => carrier[key],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     keys: (carrier) => Object.keys(carrier),
   });
 

@@ -2,6 +2,7 @@ import {
   TraceLocation,
   TraceLocationType,
   createTraceLocationFromExperimentId,
+  createTraceLocationFromUCSchema,
 } from '../../../src/core/entities/trace_location';
 
 describe('TraceLocation', () => {
@@ -80,6 +81,37 @@ describe('TraceLocation', () => {
       expect(location.type).toBe(TraceLocationType.MLFLOW_EXPERIMENT);
       expect(location.mlflowExperiment).toBeDefined();
       expect(location.mlflowExperiment?.experimentId).toBe(experimentId);
+      expect(location.inferenceTable).toBeUndefined();
+      expect(location.ucSchema).toBeUndefined();
+    });
+  });
+
+  describe('UC Schema location', () => {
+    it('should create a TraceLocation with UC schema', () => {
+      const traceLocation: TraceLocation = {
+        type: TraceLocationType.UC_SCHEMA,
+        ucSchema: { catalogName: 'my_catalog', schemaName: 'my_schema' },
+      };
+
+      expect(traceLocation.type).toBe(TraceLocationType.UC_SCHEMA);
+      expect(traceLocation.ucSchema?.catalogName).toBe('my_catalog');
+      expect(traceLocation.ucSchema?.schemaName).toBe('my_schema');
+      expect(traceLocation.mlflowExperiment).toBeUndefined();
+      expect(traceLocation.inferenceTable).toBeUndefined();
+    });
+  });
+
+  describe('createTraceLocationFromUCSchema', () => {
+    it('should create a TraceLocation with UC schema', () => {
+      const catalogName = 'my_catalog';
+      const schemaName = 'my_schema';
+      const location = createTraceLocationFromUCSchema(catalogName, schemaName);
+
+      expect(location.type).toBe(TraceLocationType.UC_SCHEMA);
+      expect(location.ucSchema).toBeDefined();
+      expect(location.ucSchema?.catalogName).toBe(catalogName);
+      expect(location.ucSchema?.schemaName).toBe(schemaName);
+      expect(location.mlflowExperiment).toBeUndefined();
       expect(location.inferenceTable).toBeUndefined();
     });
   });

@@ -1,4 +1,4 @@
-import { init } from './core/config';
+import { init, setDestination, getDestination, resetDestination } from './core/config';
 import {
   getLastActiveTraceId,
   getCurrentActiveSpan,
@@ -14,6 +14,11 @@ import {
   withTracingContextFromHeaders,
   withTracingContextFromHeadersAsync,
 } from './core/distributed';
+import {
+  createTraceLocationFromExperimentId,
+  createTraceLocationFromUCSchema,
+  TraceLocationType,
+} from './core/entities/trace_location';
 
 export {
   getLastActiveTraceId,
@@ -25,6 +30,13 @@ export {
   trace,
   withSpan,
   MlflowClient,
+  // Destination management
+  setDestination,
+  getDestination,
+  resetDestination,
+  createTraceLocationFromExperimentId,
+  createTraceLocationFromUCSchema,
+  TraceLocationType,
   // Distributed tracing
   getTracingContextHeadersForHttpRequest,
   withTracingContextFromHeaders,
@@ -40,3 +52,11 @@ export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
 export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';
+
+// Export trace location types
+export type {
+  TraceLocation,
+  MlflowExperimentLocation,
+  UCSchemaLocation,
+  InferenceTableLocation,
+} from './core/entities/trace_location';

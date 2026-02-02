@@ -10,7 +10,10 @@ import { Context } from '@opentelemetry/api';
 import { createAndRegisterMlflowSpan } from '../core/api';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
-import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
+import {
+  createTraceLocationFromExperimentId,
+  type TraceLocation,
+} from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
 import {
   SpanAttributeKey,
@@ -23,9 +26,24 @@ import {
   deduplicateSpanNamesInPlace,
   aggregateUsageFromSpans,
 } from '../core/utils';
-import { getConfig } from '../core/config';
+import { getConfig, getDestination } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
+
+/**
+ * Get the trace location to use for new traces.
+ * Uses the destination set via setDestination() if available,
+ * otherwise falls back to the experiment ID from config.
+ */
+function getTraceLocation(): TraceLocation {
+  const destination = getDestination();
+  if (destination) {
+    return destination;
+  }
+  // Fall back to experiment ID from config
+  const experimentId = getConfig().experimentId;
+  return createTraceLocationFromExperimentId(experimentId);
+}
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
@@ -52,14 +70,13 @@ export class MlflowSpanProcessor implements SpanProcessor {
     const otelTraceId = span.spanContext().traceId;
 
     let traceId: string;
-    const experimentId = getConfig().experimentId;
 
     if (!span.parentSpanContext?.spanId) {
       // This is a root span
       traceId = generateTraceId(span);
       const trace_info = new TraceInfo({
         traceId: traceId,
-        traceLocation: createTraceLocationFromExperimentId(experimentId),
+        traceLocation: getTraceLocation(),
         requestTime: convertHrTimeToMs(span.startTime),
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,

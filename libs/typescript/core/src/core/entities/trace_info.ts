@@ -122,6 +122,12 @@ export class TraceInfo {
               full_table_name: this.traceLocation.inferenceTable.fullTableName,
             }
           : undefined,
+        uc_schema: this.traceLocation.ucSchema
+          ? {
+              catalog_name: this.traceLocation.ucSchema.catalogName,
+              schema_name: this.traceLocation.ucSchema.schemaName,
+            }
+          : undefined,
       },
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
@@ -173,6 +179,12 @@ export class TraceInfo {
         inferenceTable: json.trace_location?.inference_table
           ? { fullTableName: json.trace_location.inference_table.full_table_name }
           : undefined,
+        ucSchema: json.trace_location?.uc_schema
+          ? {
+              catalogName: json.trace_location.uc_schema.catalog_name,
+              schemaName: json.trace_location.uc_schema.schema_name,
+            }
+          : undefined,
       },
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
@@ -200,6 +212,10 @@ export interface SerializedTraceInfo {
     };
     inference_table?: {
       full_table_name: string;
+    };
+    uc_schema?: {
+      catalog_name: string;
+      schema_name: string;
     };
   };
   request_preview?: string;
